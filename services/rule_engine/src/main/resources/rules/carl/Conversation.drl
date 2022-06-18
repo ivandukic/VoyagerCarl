@@ -1,0 +1,13 @@
+package rules.carl;
+import com.mindsmiths.telegramAdapter.TelegramReceivedMessage;
+import agents.Carl;
+
+
+rule "Handle message"
+    when
+        message: TelegramReceivedMessage() from entry-point "signals"
+        agent: Carl()
+    then
+        agent.sendMessage(message.getText());
+        delete(message);
+end
