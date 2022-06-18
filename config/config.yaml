@@ -57,3 +57,11 @@ services:
     resources:
       cpu: 81m
       memory: 130Mi
+  gpt3-adapter:
+    type: python
+    version: 4.0.0a6
+    env:
+      OPENAI_API_KEY: "{{env.OPENAI_API_KEY}}"
+    resources:
+      cpu: 81m
+      memory: 130Mi
