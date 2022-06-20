@@ -8,13 +8,15 @@ import com.mindsmiths.ruleEngine.util.Log;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.*;
-
+import java.net.http.*;
+import java.net.URI;
 
 @Getter
 @Setter
 public class Carl extends Agent {
     private List<String> memory = new ArrayList<>();
     private int MAX_MEMORY = 6;
+    private boolean requestMode = false;
 
     public Carl() {
     }
@@ -28,6 +30,34 @@ public class Carl extends Agent {
         TelegramAdapterAPI.sendMessage(chatId, text);
     }
 
+    public void initMessage() {
+        sendMessage("Travel agent VoyagerCarl, or just Carl, will make your trip planning"
+                    +" as fast as possible so that you can concentrate on exciting stuff" 
+                    +" and have a great time visiting new places :).\n"
+                    +"\n"
+                    +"Type \" $help \" (in Conversation mode) to list Carl's avaible features.\n"
+                    +"(You are currently in Conversation mode.)");
+    }
+
+    public void helpMessage() {
+        sendMessage("-> Conversation mode = in this mode you can talk with Carl and ask him anything you want."
+                    +" This mode is active by default.\n"
+                    +"\n"
+                    +"-> Request mode = in this mode Carl will first send you request form and provide"
+                    +" you with all informations on how to get your list of avaible accommodation."
+                    +" Note that in this mode you can't talk to Carl. If you want to get back to Conversation"
+                    +" mode type \"$exit\".\n"
+                    +"\n"
+                    +"OPTIONS:\n"
+                    +"-> $new-request = opens Request mode.\n"
+                    +"-> $exit = leaves Request mode returns back to Conversation mode.\n"
+                    +"-> $help = displays this message.");
+    }
+    /*
+    public void warningMessage() {
+        sendMessage("You can't talk to Carl in Request mode. Type \"$exit\" to return to Conversation mode.");
+    }
+    */
     private void trimMemory() {
         if (memory.size() > MAX_MEMORY + 1)
             memory = memory.subList(memory.size() - 1 - MAX_MEMORY, memory.size());
@@ -65,4 +95,37 @@ public class Carl extends Agent {
             null // logit bias
         );
     }
+
+    public void sendRequest(){
+        HttpRequest request = HttpRequest.newBuilder()
+		.uri(URI.create("https://booking-com.p.rapidapi.com/v1/hotels/search?room_number=1&checkin_date=2022-07-20&filter_by_currency=EUR&order_by=popularity&adults_number=2&locale=en-gb&dest_type=city&dest_id=-82860&units=metric&checkout_date=2022-07-30&page_number=0"))
+		.header("X-RapidAPI-Key", "")
+		.header("X-RapidAPI-Host", "booking-com.p.rapidapi.com")
+		.method("GET", HttpRequest.BodyPublishers.noBody())
+		.build();
+        try {
+            HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+            sendMessage("Everything is ok!");
+        }
+        catch(Exception e) {
+            sendMessage("Something went wrong. Please check your input.");
+        }
+    }
+
+    public void newRequestIntro(){
+        sendMessage("(Request mode entered! Type \"$exit\" to go back to Conversation mode.)\n"
+                    +"All parameters are required. If no child is traveling, enter \"0\" for"
+                    +" \"Number of children\" and \"Children ages\" parameters.\n"
+                    +"Please enter your requests in the following form:\n"
+                    +"City:Dubrovnik;\n"
+                    +"Checkin date:YEAR-MM-DD;\n"
+                    +"Checkout date:YEAR-MM-DD;\n"
+                    +"Currency:EUR;\n"
+                    +"Max budget:1000;\n"
+                    +"Number of rooms:1;\n"
+                    +"Number of adults:2;\n"
+                    +"Number of children:2;\n"
+                    +"Children ages:5,1;");
+    }
+    
 }

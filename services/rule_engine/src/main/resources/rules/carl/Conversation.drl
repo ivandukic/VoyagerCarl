@@ -10,18 +10,26 @@ rule "First contact"
     when
         initialize: Initialize() from entry-point "agent-created"
         message: TelegramReceivedMessage() from entry-point "signals"
-        agent: Carl()
+        agent: Carl(requestMode == false)
     then
-        agent.sendMessage("Travel agent VoyagerCarl, or just Carl, will make your trip planning"
-                          + " as fast as possible so that you can concentrate on exciting stuff" 
-                          + " and have a great time visiting new places :).");
+        agent.initMessage();
+        delete(message);
+end
+
+rule "Help message"
+    salience 100
+    when
+        message: TelegramReceivedMessage(text.equalsIgnoreCase("$help")) from entry-point "signals"
+        agent: Carl(requestMode == false)
+    then
+        agent.helpMessage();
         delete(message);
 end
 
 rule "Handle message"
     when
         message: TelegramReceivedMessage() from entry-point "signals"
-        agent: Carl()
+        agent: Carl(requestMode == false)
     then
         modify(agent) {addMessageToMemory("Human", message.getText())};
         agent.askGPT3();
@@ -31,10 +39,56 @@ end
 rule "Send GPT3 response"
     when
         gpt3Result: GPT3Completion() from entry-point "signals"
-        agent: Carl()
+        agent: Carl(requestMode == false)
     then
         String response = gpt3Result.getBestResponse();
         agent.sendMessage(response);
         modify(agent) {addMessageToMemory("Carl", response)};
         delete(gpt3Result);
+end
+
+//--------------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------------------------------------------
+
+rule "Intro new-request"
+    salience 100
+    when
+        message: TelegramReceivedMessage(text.equalsIgnoreCase("$new-request")) from entry-point "signals"
+        agent: Carl(requestMode == false)
+    then
+        agent.newRequestIntro();
+        modify(agent) {setRequestMode(true)};
+        delete(message);
+end
+/*
+rule "Handle new-request"
+    salience 90
+    when
+        message: TelegramReceivedMessage() from entry-point "signals"
+        agent: Carl(requestMode == true)
+    then
+        modify(agent) {setRequestMode(false)};
+        agent.newRequest();
+        delete(message);
+end
+*/
+/*
+rule "Warning message"
+    when
+        message: TelegramReceivedMessage() from entry-point "signals"
+        agent: Carl(requestMode == true)
+    then
+        agent.warningMessage();
+        delete(message);
+end
+*/
+rule "Exit new-request"
+    salience 100
+    when
+        message: TelegramReceivedMessage(text.equalsIgnoreCase("$exit")) from entry-point "signals"
+        agent: Carl(requestMode == true)
+    then
+        modify(agent) {setRequestMode(false)};
+        agent.sendMessage("(Request mode exited! You are now in Conversation mode!)");
+        delete(message);
 end
