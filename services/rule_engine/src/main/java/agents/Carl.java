@@ -14,6 +14,8 @@ import org.json.*;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Scanner;
+import java.util.HashMap;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -137,7 +139,7 @@ public class Carl extends Agent {
             myReader.close();
           } 
           catch (FileNotFoundException e) {
-            System.out.println("An error occurred.");
+            sendMessage("An error occurred.");
             e.printStackTrace();
           }
         return rapidApiKey;
@@ -181,4 +183,33 @@ public class Carl extends Agent {
         return destId;
     }
 
+    public Map<String,String> createUserMap (String request){
+        HashMap<String, String> userMap = new HashMap<String, String>();
+        int numOfChildren;
+        int numOfParams = 9;
+        char lastChar = request.charAt(request.length()-1);
+            
+        boolean condition1 = (lastChar == ';'); 
+        boolean condition2 = (request.length() - request.replace(";","").length()) == numOfParams;
+        
+        if ( (condition1 && condition2) == false){
+            sendMessage("Please check your input.");
+            return userMap;
+        }
+        
+        String[] requestSplitted = request.split(";", numOfParams);
+        
+        for (String param : requestSplitted){
+            param = param.replace(";","");
+            param = param.replace("\n","");
+            String[] paramSplitted = param.split(":",2);
+            try{
+                userMap.put(paramSplitted[0].trim().toLowerCase(),paramSplitted[1].trim().toLowerCase());
+            }
+            catch (Exception e){
+                sendMessage("Please check your input!");
+            }
+        }
+        return userMap;
+    }
 }
