@@ -183,9 +183,8 @@ public class Carl extends Agent {
         return destId;
     }
 
-    public Map<String,String> createUserMap (String request){
+    public HashMap<String,String> createUserMap (String request){
         HashMap<String, String> userMap = new HashMap<String, String>();
-        int numOfChildren;
         int numOfParams = 9;
         char lastChar = request.charAt(request.length()-1);
             
@@ -211,5 +210,32 @@ public class Carl extends Agent {
             }
         }
         return userMap;
+    }
+
+    public String createRequestUrl(String request){
+        String requestUrl = "";
+        int numOfChildren;
+        HashMap<String, String> userMap = createUserMap(request);
+        String destId = cityLocation(userMap.get("city"));
+        try{
+            requestUrl = String.format("https://booking-com.p.rapidapi.com/v1/hotels/search?room_number=%s&checkin_date=%s&filter_by_currency=%s&order_by=popularity&adults_number=%s&locale=en-gb&dest_type=city&dest_id=%s&units=metric&checkout_date=%s", userMap.get("number of rooms"),userMap.get("checkin date"), userMap.get("currency").toUpperCase(),userMap.get("number of adults"),destId,userMap.get("checkout date"));
+            numOfChildren = Integer.parseInt(userMap.get("number of children"));
+            String childString;
+            
+            if (numOfChildren>0){
+                String[] childrenAges = userMap.get("children ages").split(",",0);
+                childString = "&children_ages=" + childrenAges[0];
+                for (int i = 1; i < numOfChildren; i++){
+                    childString += String.format("%%2C%s", childrenAges[i]);
+                }
+                
+                childString += String.format("&children_number=%s", numOfChildren);
+                requestUrl += childString;
+            }
+        }
+        catch (Exception e){
+            sendMessage("Please check your input.");
+        }
+        return requestUrl;
     }
 }
