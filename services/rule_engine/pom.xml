@@ -49,6 +49,11 @@
 			<artifactId>gpt3-adapter-client</artifactId>
 			<version>4.0.0a6</version>
 		</dependency>
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20140107</version>
+        </dependency>
 	</dependencies>
 	<build>
 		<finalName>app</finalName>

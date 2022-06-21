@@ -60,7 +60,7 @@ rule "Intro new-request"
         modify(agent) {setRequestMode(true)};
         delete(message);
 end
-/*
+
 rule "Handle new-request"
     salience 90
     when
@@ -68,20 +68,12 @@ rule "Handle new-request"
         agent: Carl(requestMode == true)
     then
         modify(agent) {setRequestMode(false)};
-        agent.newRequest();
+        //agent.cityLocation(message.getText());
+        agent.sendMessage("(Request mode exited! You are now in Conversation mode!)");
         delete(message);
 end
-*/
-/*
-rule "Warning message"
-    when
-        message: TelegramReceivedMessage() from entry-point "signals"
-        agent: Carl(requestMode == true)
-    then
-        agent.warningMessage();
-        delete(message);
-end
-*/
+
+
 rule "Exit new-request"
     salience 100
     when

@@ -10,6 +10,10 @@ import java.util.List;
 import lombok.*;
 import java.net.http.*;
 import java.net.URI;
+import org.json.*;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.Scanner;
 
 @Getter
 @Setter
@@ -17,6 +21,7 @@ public class Carl extends Agent {
     private List<String> memory = new ArrayList<>();
     private int MAX_MEMORY = 6;
     private boolean requestMode = false;
+    private String rapidApiKey = "";
 
     public Carl() {
     }
@@ -53,11 +58,7 @@ public class Carl extends Agent {
                     +"-> $exit = leaves Request mode returns back to Conversation mode.\n"
                     +"-> $help = displays this message.");
     }
-    /*
-    public void warningMessage() {
-        sendMessage("You can't talk to Carl in Request mode. Type \"$exit\" to return to Conversation mode.");
-    }
-    */
+   
     private void trimMemory() {
         if (memory.size() > MAX_MEMORY + 1)
             memory = memory.subList(memory.size() - 1 - MAX_MEMORY, memory.size());
@@ -127,5 +128,57 @@ public class Carl extends Agent {
                     +"Number of children:2;\n"
                     +"Children ages:5,1;");
     }
+
+    public String getRapidApiKey(){
+        try {
+            File myObj = new File("/app/.rapidApiKey");
+            Scanner myReader = new Scanner(myObj);
+            rapidApiKey = myReader.nextLine();
+            myReader.close();
+          } 
+          catch (FileNotFoundException e) {
+            System.out.println("An error occurred.");
+            e.printStackTrace();
+          }
+        return rapidApiKey;
+    }
+
+    public String cityLocation(String userCity){
+        String destId = "";
+        String url;
+        String rapidApiKey = getRapidApiKey();
+        JSONArray locationJson = new JSONArray();
     
+        url = String.format("https://booking-com.p.rapidapi.com/v1/hotels/locations?name=%s&locale=en-gb", userCity);
+    
+        HttpRequest request = HttpRequest.newBuilder()
+		    .uri(URI.create(url))
+		    .header("X-RapidAPI-Key", rapidApiKey)
+		    .header("X-RapidAPI-Host", "booking-com.p.rapidapi.com")
+		    .method("GET", HttpRequest.BodyPublishers.noBody())
+		    .build();
+    
+        try{
+            HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+            locationJson = new JSONArray(response.body());
+        }
+        catch(Exception e){
+            sendMessage("Ups! Something went wrong!");
+        }
+    
+        if (locationJson.length() == 0){
+            sendMessage(String.format("We couldn't find \"%s\" city. Please check your input.", userCity));
+        }
+    
+        for (int i = 0; i < locationJson.length(); i++){
+            JSONObject tempObj;
+            tempObj = locationJson.getJSONObject(i);
+
+            if (tempObj.getString("dest_type").trim().toLowerCase().equals("city") && tempObj.getString("city_name").trim().toLowerCase().equals(userCity)){
+                destId = tempObj.getString("dest_id");
+            }
+        }
+        return destId;
+    }
+
 }
