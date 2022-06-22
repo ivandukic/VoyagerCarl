@@ -99,22 +99,6 @@ public class Carl extends Agent {
         );
     }
 
-    public void sendRequest(){
-        HttpRequest request = HttpRequest.newBuilder()
-		.uri(URI.create("https://booking-com.p.rapidapi.com/v1/hotels/search?room_number=1&checkin_date=2022-07-20&filter_by_currency=EUR&order_by=popularity&adults_number=2&locale=en-gb&dest_type=city&dest_id=-82860&units=metric&checkout_date=2022-07-30&page_number=0"))
-		.header("X-RapidAPI-Key", "")
-		.header("X-RapidAPI-Host", "booking-com.p.rapidapi.com")
-		.method("GET", HttpRequest.BodyPublishers.noBody())
-		.build();
-        try {
-            HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
-            sendMessage("Everything is ok!");
-        }
-        catch(Exception e) {
-            sendMessage("Something went wrong. Please check your input.");
-        }
-    }
-
     public void newRequestIntro(){
         sendMessage("(Request mode entered! Type \"$exit\" to go back to Conversation mode.)\n"
                     +"All parameters are required. If no child is traveling, enter \"0\" for"
@@ -153,7 +137,7 @@ public class Carl extends Agent {
     
         url = String.format("https://booking-com.p.rapidapi.com/v1/hotels/locations?name=%s&locale=en-gb", userCity);
     
-        HttpRequest request = HttpRequest.newBuilder()
+        HttpRequest httpRequest = HttpRequest.newBuilder()
 		    .uri(URI.create(url))
 		    .header("X-RapidAPI-Key", rapidApiKey)
 		    .header("X-RapidAPI-Host", "booking-com.p.rapidapi.com")
@@ -161,7 +145,7 @@ public class Carl extends Agent {
 		    .build();
     
         try{
-            HttpResponse<String> response = HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = HttpClient.newHttpClient().send(httpRequest, HttpResponse.BodyHandlers.ofString());
             locationJson = new JSONArray(response.body());
         }
         catch(Exception e){
@@ -237,5 +221,48 @@ public class Carl extends Agent {
             sendMessage("Please check your input.");
         }
         return requestUrl;
+    }
+
+    public String getDataString(String request){
+        String requestUrl = createRequestUrl(request);
+        String rapidApiKey = getRapidApiKey();
+        String dataString = "";
+        
+        HttpRequest httpRequest = HttpRequest.newBuilder()
+		.uri(URI.create(requestUrl))
+		.header("X-RapidAPI-Key", rapidApiKey)
+		.header("X-RapidAPI-Host", "booking-com.p.rapidapi.com")
+		.method("GET", HttpRequest.BodyPublishers.noBody())
+		.build();
+        
+        try {
+            HttpResponse<String> response = HttpClient.newHttpClient().send(httpRequest, HttpResponse.BodyHandlers.ofString());
+            dataString = response.body();
+        }
+        catch(Exception e) {
+            sendMessage("Something went wrong.");
+        }
+        return dataString;
+    }
+   
+    public void newRequest(String request){
+        HashMap<String, String> userMap = createUserMap(request);
+        Double maxPrice = Double.parseDouble(userMap.get("max budget"));
+        JSONObject dataJson = new JSONObject(getDataString(request));    
+        JSONArray resultArray = dataJson.getJSONArray("result");  
+        
+        for (int i = 0; i < resultArray.length(); i++){
+            JSONObject tempObj = resultArray.getJSONObject(i);
+            Double grossPrice = tempObj.getJSONObject("price_breakdown").getDouble("all_inclusive_price");
+            
+            if (Double.compare(grossPrice, maxPrice) < 0){
+                String hotelName = tempObj.getString("hotel_name");
+                String hotelUrl = tempObj.getString("url");
+                String result = "Accommodation: " + hotelName + "\n"
+                                 +"Price: " + Double.toString(grossPrice) + " " + userMap.get("currency").toUpperCase() + "\n"
+                                 +"URL: " + hotelUrl;
+                sendMessage(result);
+            }
+        }
     }
 }

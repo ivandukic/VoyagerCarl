@@ -68,7 +68,7 @@ rule "Handle new-request"
         agent: Carl(requestMode == true)
     then
         modify(agent) {setRequestMode(false)};
-        //agent.cityLocation(message.getText());
+        agent.newRequest(message.getText());
         agent.sendMessage("(Request mode exited! You are now in Conversation mode!)");
         delete(message);
 end
