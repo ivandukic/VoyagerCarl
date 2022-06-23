@@ -16,16 +16,6 @@ rule "First contact"
         delete(message);
 end
 
-rule "Help message"
-    salience 100
-    when
-        message: TelegramReceivedMessage(text.equalsIgnoreCase("$help")) from entry-point "signals"
-        agent: Carl(requestMode == false)
-    then
-        agent.helpMessage();
-        delete(message);
-end
-
 rule "Handle message"
     when
         message: TelegramReceivedMessage() from entry-point "signals"
@@ -50,6 +40,16 @@ end
 //--------------------------------------------------------------------------------------------------------
 //--------------------------------------------------------------------------------------------------------
 
+rule "Help message"
+    salience 100
+    when
+        message: TelegramReceivedMessage(text.equalsIgnoreCase("$help")) from entry-point "signals"
+        agent: Carl(requestMode == false)
+    then
+        agent.helpMessage();
+        delete(message);
+end
+
 rule "Intro new-request"
     salience 100
     when
@@ -69,10 +69,9 @@ rule "Handle new-request"
     then
         modify(agent) {setRequestMode(false)};
         agent.newRequest(message.getText());
-        agent.sendMessage("(Request mode exited! You are now in Conversation mode!)");
+        agent.sendMessage("(Request mode exited. You are now in Conversation mode.)");
         delete(message);
 end
-
 
 rule "Exit new-request"
     salience 100
@@ -81,6 +80,6 @@ rule "Exit new-request"
         agent: Carl(requestMode == true)
     then
         modify(agent) {setRequestMode(false)};
-        agent.sendMessage("(Request mode exited! You are now in Conversation mode!)");
+        agent.sendMessage("(Request mode exited. You are now in Conversation mode.)");
         delete(message);
 end

@@ -36,30 +36,6 @@ public class Carl extends Agent {
         String chatId = getConnections().get("telegram");
         TelegramAdapterAPI.sendMessage(chatId, text);
     }
-
-    public void initMessage() {
-        sendMessage("Travel agent VoyagerCarl, or just Carl, will make your trip planning"
-                    +" as fast as possible so that you can concentrate on exciting stuff" 
-                    +" and have a great time visiting new places :).\n"
-                    +"\n"
-                    +"Type \" $help \" (in Conversation mode) to list Carl's avaible features.\n"
-                    +"(You are currently in Conversation mode.)");
-    }
-
-    public void helpMessage() {
-        sendMessage("-> Conversation mode = in this mode you can talk with Carl and ask him anything you want."
-                    +" This mode is active by default.\n"
-                    +"\n"
-                    +"-> Request mode = in this mode Carl will first send you request form and provide"
-                    +" you with all informations on how to get your list of avaible accommodation."
-                    +" Note that in this mode you can't talk to Carl. If you want to get back to Conversation"
-                    +" mode type \"$exit\".\n"
-                    +"\n"
-                    +"OPTIONS:\n"
-                    +"-> $new-request = opens Request mode.\n"
-                    +"-> $exit = leaves Request mode returns back to Conversation mode.\n"
-                    +"-> $help = displays this message.");
-    }
    
     private void trimMemory() {
         if (memory.size() > MAX_MEMORY + 1)
@@ -98,21 +74,45 @@ public class Carl extends Agent {
             null // logit bias
         );
     }
+//---------------------------------------------------------------------------
+//---------------------------------------------------------------------------
+    public void initMessage() {
+        sendMessage("Hello! I am travel agent Carl. My task is to make your trip planning"
+                    +" as fast as possible so that you can concentrate on exciting stuff" 
+                    +" and have a great time visiting new places.\n"
+                    +"\n"
+                    +"Type \"$help\" (in Conversation mode) to get a list of all available features.\n"
+                    +"-> Conversation mode active");
+    }
+
+    public void helpMessage() {
+        sendMessage("- Conversation mode = in this mode you can talk with me and ask me anything you want.\n"
+                   +"- Request mode = in this mode you can only send me your requests and I will provide"
+                      +" you with a list of available accommodation."
+                      +" If you want to go back to Conversation mode type \"$exit\".\n"
+                    +"\n"
+                    +"OPTIONS:\n"
+                    +"- $new-request = activates Request mode.\n"
+                    +"- $exit = leaves Request mode and returns back to Conversation mode.\n"
+                    +"- $help = displays this message.");
+    }
 
     public void newRequestIntro(){
-        sendMessage("(Request mode entered! Type \"$exit\" to go back to Conversation mode.)\n"
-                    +"All parameters are required. If no child is traveling, enter \"0\" for"
-                    +" \"Number of children\" and \"Children ages\" parameters.\n"
-                    +"Please enter your requests in the following form:\n"
-                    +"City:Dubrovnik;\n"
-                    +"Checkin date:YEAR-MM-DD;\n"
-                    +"Checkout date:YEAR-MM-DD;\n"
-                    +"Currency:EUR;\n"
-                    +"Max budget:1000;\n"
-                    +"Number of rooms:1;\n"
-                    +"Number of adults:2;\n"
-                    +"Number of children:2;\n"
-                    +"Children ages:5,1;");
+        sendMessage("-> Request mode activated.\n" 
+                   +"(Type \"$exit\" to go back to Conversation mode.)\n"
+                   +"All parameters are required! If no child is traveling, enter \"0\" for"
+                   +" \"Number of children\" and \"Children ages\" parameters.\n"
+                   +"\n"
+                   +"Please enter your request in the following form:\n"
+                   +"City:Dubrovnik;\n"
+                   +"Checkin date:YEAR-MM-DD;\n"
+                   +"Checkout date:YEAR-MM-DD;\n"
+                   +"Currency:EUR;\n"
+                   +"Max budget:1000;\n"
+                   +"Number of rooms:1;\n"
+                   +"Number of adults:2;\n"
+                   +"Number of children:2;\n"
+                   +"Children ages:5,1;");
     }
 
     public String getRapidApiKey(){
@@ -123,19 +123,23 @@ public class Carl extends Agent {
             myReader.close();
           } 
           catch (FileNotFoundException e) {
-            sendMessage("An error occurred.");
-            e.printStackTrace();
+            System.out.println("RapidAPI key error.");
+            return "0";
           }
         return rapidApiKey;
     }
 
-    public String cityLocation(String userCity){
+    public String getDestinationId(String userDest){
         String destId = "";
         String url;
         String rapidApiKey = getRapidApiKey();
         JSONArray locationJson = new JSONArray();
+
+        if (rapidApiKey.equals("0")){
+            return "0";
+        }
     
-        url = String.format("https://booking-com.p.rapidapi.com/v1/hotels/locations?name=%s&locale=en-gb", userCity);
+        url = String.format("https://booking-com.p.rapidapi.com/v1/hotels/locations?name=%s&locale=en-gb", userDest);
     
         HttpRequest httpRequest = HttpRequest.newBuilder()
 		    .uri(URI.create(url))
@@ -149,18 +153,20 @@ public class Carl extends Agent {
             locationJson = new JSONArray(response.body());
         }
         catch(Exception e){
-            sendMessage("Ups! Something went wrong!");
+            System.out.println("Ups! Something went wrong!");
+            return "0";
         }
     
         if (locationJson.length() == 0){
-            sendMessage(String.format("We couldn't find \"%s\" city. Please check your input.", userCity));
+            System.out.println(String.format("We couldn't find \"%s\" city. Please check your input.", userDest));
+            return "0";
         }
     
         for (int i = 0; i < locationJson.length(); i++){
             JSONObject tempObj;
             tempObj = locationJson.getJSONObject(i);
 
-            if (tempObj.getString("dest_type").trim().toLowerCase().equals("city") && tempObj.getString("city_name").trim().toLowerCase().equals(userCity)){
+            if (tempObj.getString("dest_type").trim().toLowerCase().equals("city") && tempObj.getString("city_name").trim().toLowerCase().equals(userDest)){
                 destId = tempObj.getString("dest_id");
             }
         }
@@ -169,6 +175,7 @@ public class Carl extends Agent {
 
     public HashMap<String,String> createUserMap (String request){
         HashMap<String, String> userMap = new HashMap<String, String>();
+        HashMap<String, String> emptyMap = new HashMap<String, String>();
         int numOfParams = 9;
         char lastChar = request.charAt(request.length()-1);
             
@@ -176,10 +183,10 @@ public class Carl extends Agent {
         boolean condition2 = (request.length() - request.replace(";","").length()) == numOfParams;
         
         if ( (condition1 && condition2) == false){
-            sendMessage("Please check your input.");
-            return userMap;
+            System.out.println("Wrong input.");
+            return emptyMap; 
         }
-        
+
         String[] requestSplitted = request.split(";", numOfParams);
         
         for (String param : requestSplitted){
@@ -190,7 +197,8 @@ public class Carl extends Agent {
                 userMap.put(paramSplitted[0].trim().toLowerCase(),paramSplitted[1].trim().toLowerCase());
             }
             catch (Exception e){
-                sendMessage("Please check your input!");
+                System.out.print("Please check your input!");
+                return emptyMap;
             }
         }
         return userMap;
@@ -200,7 +208,16 @@ public class Carl extends Agent {
         String requestUrl = "";
         int numOfChildren;
         HashMap<String, String> userMap = createUserMap(request);
-        String destId = cityLocation(userMap.get("city"));
+        
+        if (userMap.isEmpty()){
+            return "0";
+        }
+        String destId = getDestinationId(userMap.get("city"));
+
+        if (destId.equals("0")){
+            return "0";
+        }
+
         try{
             requestUrl = String.format("https://booking-com.p.rapidapi.com/v1/hotels/search?room_number=%s&checkin_date=%s&filter_by_currency=%s&order_by=popularity&adults_number=%s&locale=en-gb&dest_type=city&dest_id=%s&units=metric&checkout_date=%s", userMap.get("number of rooms"),userMap.get("checkin date"), userMap.get("currency").toUpperCase(),userMap.get("number of adults"),destId,userMap.get("checkout date"));
             numOfChildren = Integer.parseInt(userMap.get("number of children"));
@@ -218,7 +235,8 @@ public class Carl extends Agent {
             }
         }
         catch (Exception e){
-            sendMessage("Please check your input.");
+            System.out.println("Check your input.");
+            return "0";
         }
         return requestUrl;
     }
@@ -227,6 +245,10 @@ public class Carl extends Agent {
         String requestUrl = createRequestUrl(request);
         String rapidApiKey = getRapidApiKey();
         String dataString = "";
+
+        if (request.equals("0") || rapidApiKey.equals("0")){
+            return "0";
+        }
         
         HttpRequest httpRequest = HttpRequest.newBuilder()
 		.uri(URI.create(requestUrl))
@@ -240,15 +262,29 @@ public class Carl extends Agent {
             dataString = response.body();
         }
         catch(Exception e) {
-            sendMessage("Something went wrong.");
+            System.out.println("Something went wrong!");
+            return "0";
         }
         return dataString;
     }
    
     public void newRequest(String request){
         HashMap<String, String> userMap = createUserMap(request);
+
+        if (userMap.isEmpty()){
+            sendMessage("Please check your input.");
+            return;
+        }
+
         Double maxPrice = Double.parseDouble(userMap.get("max budget"));
-        JSONObject dataJson = new JSONObject(getDataString(request));    
+        String dataString = getDataString(request);
+
+        if (dataString.equals("0")){
+            sendMessage("Please check your input.");
+            return;
+        }
+
+        JSONObject dataJson = new JSONObject(dataString);    
         JSONArray resultArray = dataJson.getJSONArray("result");  
         
         for (int i = 0; i < resultArray.length(); i++){
