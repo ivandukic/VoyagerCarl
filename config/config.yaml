@@ -49,7 +49,7 @@ services:
       memory: 94Mi
   telegram-adapter:
     type: python
-    version: 4.0.0a7
+    version: 4.0.0a9
     db:
       mongo: true
     env:
@@ -59,7 +59,7 @@ services:
       memory: 130Mi
   gpt3-adapter:
     type: python
-    version: 4.0.0a6
+    version: 4.0.0a8
     env:
       OPENAI_API_KEY: "{{env.OPENAI_API_KEY}}"
     resources:

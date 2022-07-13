@@ -3,18 +3,8 @@ import com.mindsmiths.telegramAdapter.TelegramReceivedMessage;
 import com.mindsmiths.ruleEngine.model.Initialize;
 import com.mindsmiths.gpt3.completion.GPT3Completion;
 import agents.Carl;
-
-
-rule "First contact"
-    salience 100
-    when
-        initialize: Initialize() from entry-point "agent-created"
-        message: TelegramReceivedMessage() from entry-point "signals"
-        agent: Carl(requestMode == false)
-    then
-        agent.initMessage();
-        delete(message);
-end
+import com.mindsmiths.ruleEngine.model.Heartbeat;
+import java.util.Date;
 
 rule "Handle message"
     when
@@ -54,7 +44,7 @@ rule "Intro new-request"
     salience 100
     when
         message: TelegramReceivedMessage(text.equalsIgnoreCase("$new-request")) from entry-point "signals"
-        agent: Carl(requestMode == false)
+        agent: Carl(requestMode == false, redoRequestFlag == false)
     then
         agent.newRequestIntro();
         modify(agent) {setRequestMode(true)};
@@ -70,6 +60,7 @@ rule "Handle new-request"
         modify(agent) {setRequestMode(false)};
         agent.newRequest(message.getText());
         agent.sendMessage("(Request mode exited. You are now in Conversation mode.)");
+        modify(agent) {setRedoRequestFlag(true), setLastRequestTime(new Date())};
         delete(message);
 end
 
@@ -81,5 +72,25 @@ rule "Exit new-request"
     then
         modify(agent) {setRequestMode(false)};
         agent.sendMessage("(Request mode exited. You are now in Conversation mode.)");
+        delete(message);
+end
+
+rule "Redo request" 
+    when
+        Heartbeat(ts: timestamp) from entry-point "signals"
+        agent: Carl(redoRequestFlag == true,
+                    lastRequestTime before[24h] ts)
+    then
+        agent.redoRequest();
+        modify(agent) {setLastRequestTime(new Date())};
+end
+
+rule "Stop redo request"
+    salience 100
+    when
+        message: TelegramReceivedMessage(text.equalsIgnoreCase("$stop")) from entry-point "signals"
+        agent: Carl(requestMode == false, redoRequestFlag == true)
+    then
+        modify(agent) {setRedoRequestFlag(false)};
         delete(message);
 end

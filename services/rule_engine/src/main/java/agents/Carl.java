@@ -3,7 +3,6 @@ package agents;
 import com.mindsmiths.ruleEngine.model.Agent;
 import com.mindsmiths.telegramAdapter.TelegramAdapterAPI;
 import com.mindsmiths.gpt3.GPT3AdapterAPI;
-import com.mindsmiths.gpt3.completion.GPT3Completion;
 import com.mindsmiths.ruleEngine.util.Log;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,7 +14,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.Scanner;
 import java.util.HashMap;
-import java.util.Map;
+import java.util.Date;
 
 @Getter
 @Setter
@@ -24,6 +23,10 @@ public class Carl extends Agent {
     private int MAX_MEMORY = 6;
     private boolean requestMode = false;
     private String rapidApiKey = "";
+    private HashMap<String, Double> oldResults = new HashMap<String, Double>();
+    private String savedRequest = "";
+    private boolean redoRequestFlag = false;
+    private Date lastRequestTime;
 
     public Carl() {
     }
@@ -76,14 +79,6 @@ public class Carl extends Agent {
     }
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
-    public void initMessage() {
-        sendMessage("Hello! I am travel agent Carl. My task is to make your trip planning"
-                    +" as fast as possible so that you can concentrate on exciting stuff" 
-                    +" and have a great time visiting new places.\n"
-                    +"\n"
-                    +"Type \"$help\" (in Conversation mode) to get a list of all available features.\n"
-                    +"-> Conversation mode active");
-    }
 
     public void helpMessage() {
         sendMessage("- Conversation mode = in this mode you can talk with me and ask me anything you want.\n"
@@ -94,7 +89,8 @@ public class Carl extends Agent {
                     +"OPTIONS:\n"
                     +"- $new-request = activates Request mode.\n"
                     +"- $exit = leaves Request mode and returns back to Conversation mode.\n"
-                    +"- $help = displays this message.");
+                    +"- $help = displays this message."
+                    +"- $stop = stops tracking your request");
     }
 
     public void newRequestIntro(){
@@ -123,7 +119,7 @@ public class Carl extends Agent {
             myReader.close();
           } 
           catch (FileNotFoundException e) {
-            System.out.println("RapidAPI key error.");
+            System.out.println("getRapidApiKey error!");
             return "0";
           }
         return rapidApiKey;
@@ -153,12 +149,12 @@ public class Carl extends Agent {
             locationJson = new JSONArray(response.body());
         }
         catch(Exception e){
-            System.out.println("Ups! Something went wrong!");
+            System.out.println("getDestinationId error: exception!");
             return "0";
         }
     
         if (locationJson.length() == 0){
-            System.out.println(String.format("We couldn't find \"%s\" city. Please check your input.", userDest));
+            System.out.println("getDestinationId error: destination not found!");
             return "0";
         }
     
@@ -182,8 +178,8 @@ public class Carl extends Agent {
         boolean condition1 = (lastChar == ';'); 
         boolean condition2 = (request.length() - request.replace(";","").length()) == numOfParams;
         
-        if ( (condition1 && condition2) == false){
-            System.out.println("Wrong input.");
+        if ((condition1 && condition2) == false){
+            System.out.println("createUserMap erorr: conditions not satisfied!");
             return emptyMap; 
         }
 
@@ -197,7 +193,7 @@ public class Carl extends Agent {
                 userMap.put(paramSplitted[0].trim().toLowerCase(),paramSplitted[1].trim().toLowerCase());
             }
             catch (Exception e){
-                System.out.print("Please check your input!");
+                System.out.print("createUserMap erorr: exception!");
                 return emptyMap;
             }
         }
@@ -235,7 +231,7 @@ public class Carl extends Agent {
             }
         }
         catch (Exception e){
-            System.out.println("Check your input.");
+            System.out.println("createRequestUrl error: exception!");
             return "0";
         }
         return requestUrl;
@@ -246,7 +242,7 @@ public class Carl extends Agent {
         String rapidApiKey = getRapidApiKey();
         String dataString = "";
 
-        if (request.equals("0") || rapidApiKey.equals("0")){
+        if (requestUrl.equals("0") || rapidApiKey.equals("0")){
             return "0";
         }
         
@@ -262,13 +258,15 @@ public class Carl extends Agent {
             dataString = response.body();
         }
         catch(Exception e) {
-            System.out.println("Something went wrong!");
+            System.out.println("getDataString error: exception!");
             return "0";
         }
         return dataString;
     }
    
     public void newRequest(String request){
+        savedRequest = request;
+        oldResults.clear();
         HashMap<String, String> userMap = createUserMap(request);
 
         if (userMap.isEmpty()){
@@ -290,11 +288,68 @@ public class Carl extends Agent {
         for (int i = 0; i < resultArray.length(); i++){
             JSONObject tempObj = resultArray.getJSONObject(i);
             Double grossPrice = tempObj.getJSONObject("price_breakdown").getDouble("all_inclusive_price");
-            
+            String hotelId = String.valueOf(tempObj.getInt("hotel_id"));
+
             if (Double.compare(grossPrice, maxPrice) < 0){
+                oldResults.put(hotelId, grossPrice);
+
                 String hotelName = tempObj.getString("hotel_name");
                 String hotelUrl = tempObj.getString("url");
                 String result = "Accommodation: " + hotelName + "\n"
+                                 +"Price: " + Double.toString(grossPrice) + " " + userMap.get("currency").toUpperCase() + "\n"
+                                 +"URL: " + hotelUrl;
+                sendMessage(result);
+            }
+        }
+    }
+
+    public void redoRequest(){
+        HashMap<String, String> userMap = createUserMap(savedRequest);
+
+        if (userMap.isEmpty()){
+            sendMessage("Something went wrong.");
+            return;
+        }
+
+        Double maxPrice = Double.parseDouble(userMap.get("max budget"));
+        String dataString = getDataString(savedRequest);
+
+        if (dataString.equals("0")){
+            sendMessage("Something went wrong!");
+            return;
+        }
+
+        JSONObject dataJson = new JSONObject(dataString);    
+        JSONArray resultArray = dataJson.getJSONArray("result");
+
+        for (int i = 0; i < resultArray.length(); i++){
+            JSONObject tempObj = resultArray.getJSONObject(i);
+            Double grossPrice = tempObj.getJSONObject("price_breakdown").getDouble("all_inclusive_price");
+            String hotelId = String.valueOf(tempObj.getInt("hotel_id"));
+            
+            if (oldResults.containsKey(hotelId) && (Double.compare(oldResults.get(hotelId), grossPrice)==0)){
+                sendMessage("Same.");
+                continue;
+            }
+
+            else if (oldResults.containsKey(hotelId)){
+                oldResults.put(hotelId, grossPrice);
+                String hotelName = tempObj.getString("hotel_name");
+                String hotelUrl = tempObj.getString("url");
+                String result = hotelName + "has new price!\n"
+                +"New price : " + Double.toString(grossPrice) + " " + userMap.get("currency").toUpperCase() + "\n"
+                +"Old price : " + Double.toString(oldResults.get(hotelId)) + " " + userMap.get("currency").toUpperCase() + "\n"
+                +"URL: " + hotelUrl;
+                sendMessage(result);
+                continue;
+            }
+
+            else if (Double.compare(grossPrice, maxPrice) < 0){
+                oldResults.put(hotelId, grossPrice);
+                String hotelName = tempObj.getString("hotel_name");
+                String hotelUrl = tempObj.getString("url");
+                String result = "New accommodation found!\n"
+                                 +"Accommodation: " + hotelName + "\n"
                                  +"Price: " + Double.toString(grossPrice) + " " + userMap.get("currency").toUpperCase() + "\n"
                                  +"URL: " + hotelUrl;
                 sendMessage(result);
