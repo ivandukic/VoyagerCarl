@@ -332,7 +332,6 @@ public void helpMessage() {
             String hotelId = String.valueOf(tempObj.getInt("hotel_id"));
             
             if (this.oldResults.containsKey(hotelId) && (Double.compare(this.oldResults.get(hotelId), grossPrice)==0)){
-                sendMessage("Same.");
                 continue;
             }
 
