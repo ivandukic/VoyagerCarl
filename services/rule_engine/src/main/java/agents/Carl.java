@@ -20,13 +20,16 @@ import java.util.Date;
 @Setter
 public class Carl extends Agent {
     private List<String> memory = new ArrayList<>();
-    private int MAX_MEMORY = 6;
+    private int MAX_MEMORY = 5;
+
     private boolean requestMode = false;
+    private boolean redoRequestFlag = false;
+    private Date lastRequestTime;
+
     private String rapidApiKey = "";
     private HashMap<String, Double> oldResults = new HashMap<String, Double>();
     private String savedRequest = "";
-    private boolean redoRequestFlag = false;
-    private Date lastRequestTime;
+    
 
     public Carl() {
     }
@@ -77,10 +80,11 @@ public class Carl extends Agent {
             null // logit bias
         );
     }
+
 //---------------------------------------------------------------------------
 //---------------------------------------------------------------------------
 
-    public void helpMessage() {
+public void helpMessage() {
         sendMessage("- Conversation mode = in this mode you can talk with me and ask me anything you want.\n"
                    +"- Request mode = in this mode you can only send me your requests and I will provide"
                       +" you with a list of available accommodation."
@@ -265,8 +269,8 @@ public class Carl extends Agent {
     }
    
     public void newRequest(String request){
-        savedRequest = request;
-        oldResults.clear();
+        this.savedRequest = request;
+        this.oldResults.clear();
         HashMap<String, String> userMap = createUserMap(request);
 
         if (userMap.isEmpty()){
@@ -291,7 +295,7 @@ public class Carl extends Agent {
             String hotelId = String.valueOf(tempObj.getInt("hotel_id"));
 
             if (Double.compare(grossPrice, maxPrice) < 0){
-                oldResults.put(hotelId, grossPrice);
+                this.oldResults.put(hotelId, grossPrice);
 
                 String hotelName = tempObj.getString("hotel_name");
                 String hotelUrl = tempObj.getString("url");
@@ -304,7 +308,7 @@ public class Carl extends Agent {
     }
 
     public void redoRequest(){
-        HashMap<String, String> userMap = createUserMap(savedRequest);
+        HashMap<String, String> userMap = createUserMap(this.savedRequest);
 
         if (userMap.isEmpty()){
             sendMessage("Something went wrong.");
@@ -312,7 +316,7 @@ public class Carl extends Agent {
         }
 
         Double maxPrice = Double.parseDouble(userMap.get("max budget"));
-        String dataString = getDataString(savedRequest);
+        String dataString = getDataString(this.savedRequest);
 
         if (dataString.equals("0")){
             sendMessage("Something went wrong!");
@@ -327,25 +331,25 @@ public class Carl extends Agent {
             Double grossPrice = tempObj.getJSONObject("price_breakdown").getDouble("all_inclusive_price");
             String hotelId = String.valueOf(tempObj.getInt("hotel_id"));
             
-            if (oldResults.containsKey(hotelId) && (Double.compare(oldResults.get(hotelId), grossPrice)==0)){
+            if (this.oldResults.containsKey(hotelId) && (Double.compare(this.oldResults.get(hotelId), grossPrice)==0)){
                 sendMessage("Same.");
                 continue;
             }
 
-            else if (oldResults.containsKey(hotelId)){
-                oldResults.put(hotelId, grossPrice);
+            else if (this.oldResults.containsKey(hotelId)){
                 String hotelName = tempObj.getString("hotel_name");
                 String hotelUrl = tempObj.getString("url");
                 String result = hotelName + "has new price!\n"
                 +"New price : " + Double.toString(grossPrice) + " " + userMap.get("currency").toUpperCase() + "\n"
-                +"Old price : " + Double.toString(oldResults.get(hotelId)) + " " + userMap.get("currency").toUpperCase() + "\n"
+                +"Old price : " + Double.toString(this.oldResults.get(hotelId)) + " " + userMap.get("currency").toUpperCase() + "\n"
                 +"URL: " + hotelUrl;
+                this.oldResults.put(hotelId, grossPrice);
                 sendMessage(result);
                 continue;
             }
 
             else if (Double.compare(grossPrice, maxPrice) < 0){
-                oldResults.put(hotelId, grossPrice);
+                this.oldResults.put(hotelId, grossPrice);
                 String hotelName = tempObj.getString("hotel_name");
                 String hotelUrl = tempObj.getString("url");
                 String result = "New accommodation found!\n"
