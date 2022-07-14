@@ -94,3 +94,13 @@ rule "Stop redo request"
         modify(agent) {setRedoRequestFlag(false)};
         delete(message);
 end
+
+rule "Warning message"
+    salience 100
+    when
+        message: TelegramReceivedMessage(text.equalsIgnoreCase("$new-request")) from entry-point "signals"
+        agent: Carl(requestMode == false, redoRequestFlag == true)
+    then
+        agent.sendMessage("In order to initialize new request you need to stop tracking your last request using $stop command.");
+        delete(message);
+end
